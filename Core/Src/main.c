@@ -21,7 +21,13 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "tmp117.h"
+#include "ssd1306.h"
+#include "ssd1306_conf.h"
+#include "ssd1306_tests.h"
+#include "ssd1306_fonts.h"
+#include <stdio.h>
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -43,21 +49,70 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
+
+I2C_HandleTypeDef hi2c1;
+I2C_HandleTypeDef hi2c3;
+
+UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
+#define TMP117_ADDR          0x48 << 1     // TMP117 address with R/W bit
+#define TMP117_TEMP_REG      0x00          // Temperature register
+#define TMP117_CONFIG_REG    0x01          // Configuration register
 
+// TMP117 configuration values
+#define TMP117_CONFIG_VALUE  0x0220
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_I2C1_Init(void);
+static void MX_I2C3_Init(void);
+static void MX_USART2_UART_Init(void);
+static void MX_ADC1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+// TMP117 Initialization
+HAL_StatusTypeDef TMP117_Init(void) {
+    uint8_t config_data[3];
+    config_data[0] = TMP117_CONFIG_REG;               // Register pointer
+    config_data[1] = (TMP117_CONFIG_VALUE >> 8) & 0xFF; // MSB of config
+    config_data[2] = TMP117_CONFIG_VALUE & 0xFF;       // LSB of config
 
+    // Write to the configuration register
+    return HAL_I2C_Master_Transmit(&hi2c1, TMP117_ADDR, config_data, 3, HAL_MAX_DELAY);
+}
+
+// Read temperature from TMP117
+HAL_StatusTypeDef TMP117_ReadTemperature(float *temperature) {
+    uint8_t temp_data[2];
+    int16_t raw_temp;
+
+    // Request 2 bytes from temperature register
+    temp_data[0] = TMP117_TEMP_REG;
+    if (HAL_I2C_Master_Transmit(&hi2c1, TMP117_ADDR, temp_data, 1, HAL_MAX_DELAY) != HAL_OK) {
+        return HAL_ERROR;  // Error in sending data
+    }
+
+    // Receive 2 bytes of temperature data
+    if (HAL_I2C_Master_Receive(&hi2c1, TMP117_ADDR, temp_data, 2, HAL_MAX_DELAY) != HAL_OK) {
+        return HAL_ERROR;  // Error in receiving data
+    }
+
+    // Combine the two bytes to form a 16-bit signed integer
+    raw_temp = (int16_t)((temp_data[0] << 8) | temp_data[1]);
+
+    // Convert to Celsius based on TMP117 resolution (0.0078125 °C per LSB)
+    *temperature = raw_temp * 0.0078125;
+
+    return HAL_OK;
+}
 int _write(int file, char *ptr, int len)
 {
   int DataIdx;
@@ -78,7 +133,8 @@ long readHX710B() {
     for (int i = 0; i < 24; i++) {
         // Set clock high and then low with small delay for timing
         HAL_GPIO_WritePin(HX710B_CLK_GPIO_Port, HX710B_CLK_Pin, GPIO_PIN_SET);
-//        delay_us(1);  // 1 microsecond delay
+//        delay_us(1);  // 1 microsecond delay;
+//        HAL_Delay(1);
         HAL_GPIO_WritePin(HX710B_CLK_GPIO_Port, HX710B_CLK_Pin, GPIO_PIN_RESET);
 //        delay_us(1);  // 1 microsecond delay
 
@@ -96,11 +152,27 @@ long readHX710B() {
     for (char i = 0; i < 3; i++) {
         HAL_GPIO_WritePin(HX710B_CLK_GPIO_Port, HX710B_CLK_Pin, GPIO_PIN_SET);
 //        delay_us(1);  // Small delay
+//        HAL_Delay(1);
         HAL_GPIO_WritePin(HX710B_CLK_GPIO_Port, HX710B_CLK_Pin, GPIO_PIN_RESET);
 //        delay_us(1);  // Small delay
     }
 
     return result;
+}
+float batterymonitor(){
+// Poll for conversion completion and check if the ADC data is ready
+	HAL_ADC_Start(&hadc1);
+		if (HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY) == HAL_OK)
+		{
+			// Get the analog value
+			uint32_t adcValue = HAL_ADC_GetValue(&hadc1);
+
+			// Convert ADC value to voltage (assuming 12-bit resolution and 3.3V reference)
+			float voltage = (adcValue * 5.0f) / 1023.0f;
+
+			// Print or use the voltage value
+			return voltage/(0.4);
+		}
 }
 
 /* USER CODE END 0 */
@@ -113,7 +185,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
+	TMP117_Init();
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -134,7 +206,21 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_I2C1_Init();
+  MX_I2C3_Init();
+  MX_USART2_UART_Init();
+  MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
+  float temp=0.0;
+  char message[100];
+  ssd1306_Init();
+  //TMP117_set_Configuration(hi2c1,0x20,0x02);
+  //TMP117_Initialization_DEFAULT(hi2c1);
+ // TMP117_set_Temperature_Offset(hi2c1,0x60,0x00);
+  HAL_Delay(2);
+  ssd1306_Init();
+  ssd1306_Fill(Black);
+//  HAL_ADC_Start(&hadc1);
 
   /* USER CODE END 2 */
 
@@ -142,8 +228,31 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	TMP117_ReadTemperature(&temp) ;
+	HAL_Delay(100);
+	ssd1306_Fill(Black);
+	ssd1306_SetCursor(0, 4);
+	sprintf(message, "Temp: %.4fC\n", temp);
+	ssd1306_WriteString(message, Font_7x10, White);
+	ssd1306_SetCursor(0, 4  + 20);
+	sprintf(message, "Pressure: %.2fatm\n", readHX710B()/10000000.0);
+	ssd1306_WriteString(message, Font_7x10, White);
+	ssd1306_SetCursor(0, 4 + 38);
+	float battery = batterymonitor();
+	HAL_Delay(100);
+	HAL_ADC_Stop(&hadc1);
+//	sprintf(message, "Battery Voltage: %.2fV\n", battery-0.889);
+//	ssd1306_WriteString(message, Font_6x8, White);
+	if((battery-0.889)<7.6){
+		sprintf(message, "Battery Low");
+		ssd1306_WriteString(message, Font_11x18, White);
+	}
+	else{
+		sprintf(message, "Battery Full");
+		ssd1306_WriteString(message, Font_7x10, White);
+	}
+	ssd1306_UpdateScreen();
 
-	 printf("Pressure : %ld" , readHX710B());
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -183,7 +292,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_MSI;
   RCC_OscInitStruct.PLL.PLLM = 1;
-  RCC_OscInitStruct.PLL.PLLN = 16;
+  RCC_OscInitStruct.PLL.PLLN = 40;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV7;
   RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
   RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
@@ -201,7 +310,7 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_4) != HAL_OK)
   {
     Error_Handler();
   }
@@ -209,6 +318,195 @@ void SystemClock_Config(void)
   /** Enable MSI Auto calibration
   */
   HAL_RCCEx_EnableMSIPLLMode();
+}
+
+/**
+  * @brief ADC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC1_Init(void)
+{
+
+  /* USER CODE BEGIN ADC1_Init 0 */
+
+  /* USER CODE END ADC1_Init 0 */
+
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC1_Init 1 */
+
+  /* USER CODE END ADC1_Init 1 */
+
+  /** Common config
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV1;
+  hadc1.Init.Resolution = ADC_RESOLUTION_10B;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  hadc1.Init.LowPowerAutoWait = DISABLE;
+  hadc1.Init.ContinuousConvMode = ENABLE;
+  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
+  hadc1.Init.OversamplingMode = DISABLE;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_6;
+  sConfig.Rank = ADC_REGULAR_RANK_1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_2CYCLES_5;
+  sConfig.SingleDiff = ADC_SINGLE_ENDED;
+  sConfig.OffsetNumber = ADC_OFFSET_NONE;
+  sConfig.Offset = 0;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC1_Init 2 */
+
+  /* USER CODE END ADC1_Init 2 */
+
+}
+
+/**
+  * @brief I2C1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C1_Init(void)
+{
+
+  /* USER CODE BEGIN I2C1_Init 0 */
+
+  /* USER CODE END I2C1_Init 0 */
+
+  /* USER CODE BEGIN I2C1_Init 1 */
+
+  /* USER CODE END I2C1_Init 1 */
+  hi2c1.Instance = I2C1;
+  hi2c1.Init.Timing = 0x10D19CE4;
+  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c1.Init.OwnAddress2 = 0;
+  hi2c1.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
+  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Analogue filter
+  */
+  if (HAL_I2CEx_ConfigAnalogFilter(&hi2c1, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Digital filter
+  */
+  if (HAL_I2CEx_ConfigDigitalFilter(&hi2c1, 0) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C1_Init 2 */
+
+  /* USER CODE END I2C1_Init 2 */
+
+}
+
+/**
+  * @brief I2C3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C3_Init(void)
+{
+
+  /* USER CODE BEGIN I2C3_Init 0 */
+
+  /* USER CODE END I2C3_Init 0 */
+
+  /* USER CODE BEGIN I2C3_Init 1 */
+
+  /* USER CODE END I2C3_Init 1 */
+  hi2c3.Instance = I2C3;
+  hi2c3.Init.Timing = 0x00F12981;
+  hi2c3.Init.OwnAddress1 = 0;
+  hi2c3.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c3.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c3.Init.OwnAddress2 = 0;
+  hi2c3.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
+  hi2c3.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c3.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Analogue filter
+  */
+  if (HAL_I2CEx_ConfigAnalogFilter(&hi2c3, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Digital filter
+  */
+  if (HAL_I2CEx_ConfigDigitalFilter(&hi2c3, 0) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C3_Init 2 */
+
+  /* USER CODE END I2C3_Init 2 */
+
+}
+
+/**
+  * @brief USART2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART2_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART2_Init 0 */
+
+  /* USER CODE END USART2_Init 0 */
+
+  /* USER CODE BEGIN USART2_Init 1 */
+
+  /* USER CODE END USART2_Init 1 */
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 115200;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart2.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart2.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART2_Init 2 */
+
+  /* USER CODE END USART2_Init 2 */
+
 }
 
 /**
@@ -230,19 +528,8 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(SCK_GPIO_Port, SCK_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : VCP_TX_Pin */
-  GPIO_InitStruct.Pin = VCP_TX_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-  GPIO_InitStruct.Alternate = GPIO_AF7_USART2;
-  HAL_GPIO_Init(VCP_TX_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : OUT_Pin */
-  GPIO_InitStruct.Pin = OUT_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(OUT_GPIO_Port, &GPIO_InitStruct);
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : SCK_Pin */
   GPIO_InitStruct.Pin = SCK_Pin;
@@ -251,13 +538,18 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(SCK_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : VCP_RX_Pin */
-  GPIO_InitStruct.Pin = VCP_RX_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  /*Configure GPIO pin : OUT_Pin */
+  GPIO_InitStruct.Pin = OUT_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-  GPIO_InitStruct.Alternate = GPIO_AF3_USART2;
-  HAL_GPIO_Init(VCP_RX_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(OUT_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PB3 */
+  GPIO_InitStruct.Pin = GPIO_PIN_3;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
