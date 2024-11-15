@@ -1,20 +1,20 @@
 /* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2024 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2024 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
@@ -69,9 +69,9 @@ UART_HandleTypeDef huart2;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
-static void MX_I2C3_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_ADC1_Init(void);
+static void MX_I2C3_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -80,99 +80,109 @@ static void MX_ADC1_Init(void);
 /* USER CODE BEGIN 0 */
 // TMP117 Initialization
 HAL_StatusTypeDef TMP117_Init(void) {
-    uint8_t config_data[3];
-    config_data[0] = TMP117_CONFIG_REG;               // Register pointer
-    config_data[1] = (TMP117_CONFIG_VALUE >> 8) & 0xFF; // MSB of config
-    config_data[2] = TMP117_CONFIG_VALUE & 0xFF;       // LSB of config
+	uint8_t config_data[3];
+	config_data[0] = TMP117_CONFIG_REG;               // Register pointer
+	config_data[1] = (TMP117_CONFIG_VALUE >> 8) & 0xFF; // MSB of config
+	config_data[2] = TMP117_CONFIG_VALUE & 0xFF;       // LSB of config
 
-    // Write to the configuration register
-    return HAL_I2C_Master_Transmit(&hi2c1, TMP117_ADDR, config_data, 3, HAL_MAX_DELAY);
+	// Write to the configuration register
+	return HAL_I2C_Master_Transmit(&hi2c1, TMP117_ADDR, config_data, 3,
+			HAL_MAX_DELAY);
 }
 
 // Read temperature from TMP117
 HAL_StatusTypeDef TMP117_ReadTemperature(float *temperature) {
-    uint8_t temp_data[2];
-    int16_t raw_temp;
+	uint8_t temp_data[2];
+	int16_t raw_temp;
 
-    // Request 2 bytes from temperature register
-    temp_data[0] = TMP117_TEMP_REG;
-    if (HAL_I2C_Master_Transmit(&hi2c1, TMP117_ADDR, temp_data, 1, HAL_MAX_DELAY) != HAL_OK) {
-        return HAL_ERROR;  // Error in sending data
-    }
+	// Request 2 bytes from temperature register
+	temp_data[0] = TMP117_TEMP_REG;
+	if (HAL_I2C_Master_Transmit(&hi2c1, TMP117_ADDR, temp_data, 1,
+			HAL_MAX_DELAY) != HAL_OK) {
+		return HAL_ERROR;  // Error in sending data
+	}
 
-    // Receive 2 bytes of temperature data
-    if (HAL_I2C_Master_Receive(&hi2c1, TMP117_ADDR, temp_data, 2, HAL_MAX_DELAY) != HAL_OK) {
-        return HAL_ERROR;  // Error in receiving data
-    }
+	// Receive 2 bytes of temperature data
+	if (HAL_I2C_Master_Receive(&hi2c1, TMP117_ADDR, temp_data, 2, HAL_MAX_DELAY)
+			!= HAL_OK) {
+		return HAL_ERROR;  // Error in receiving data
+	}
 
-    // Combine the two bytes to form a 16-bit signed integer
-    raw_temp = (int16_t)((temp_data[0] << 8) | temp_data[1]);
+	// Combine the two bytes to form a 16-bit signed integer
+	raw_temp = (int16_t) ((temp_data[0] << 8) | temp_data[1]);
 
-    // Convert to Celsius based on TMP117 resolution (0.0078125 °C per LSB)
-    *temperature = raw_temp * 0.0078125;
+	// Convert to Celsius based on TMP117 resolution (0.0078125 °C per LSB)
+	*temperature = raw_temp * 0.0078125;
 
-    return HAL_OK;
+	return HAL_OK;
 }
-int _write(int file, char *ptr, int len)
-{
-  int DataIdx;
-  for (DataIdx = 0; DataIdx < len; DataIdx++)
-  {
-    ITM_SendChar(*ptr++);
-  }
-  return len;
+int _write(int file, char *ptr, int len) {
+	int DataIdx;
+	for (DataIdx = 0; DataIdx < len; DataIdx++) {
+		ITM_SendChar(*ptr++);
+	}
+	return len;
 }
 
 long readHX710B() {
-    // Wait until data line is low (indicating data is ready)
-    while (HAL_GPIO_ReadPin(HX710B_DATA_GPIO_Port, HX710B_DATA_Pin));
+	// Wait until data line is low (indicating data is ready)
+	while (HAL_GPIO_ReadPin(HX710B_DATA_GPIO_Port, HX710B_DATA_Pin))
+		;
 
-    long result = 0;
+	long result = 0;
 
-    // Read 24 bits from the sensor
-    for (int i = 0; i < 24; i++) {
-        // Set clock high and then low with small delay for timing
-        HAL_GPIO_WritePin(HX710B_CLK_GPIO_Port, HX710B_CLK_Pin, GPIO_PIN_SET);
+	// Read 24 bits from the sensor
+	for (int i = 0; i < 24; i++) {
+		// Set clock high and then low with small delay for timing
+		HAL_GPIO_WritePin(HX710B_CLK_GPIO_Port, HX710B_CLK_Pin, GPIO_PIN_SET);
 //        delay_us(1);  // 1 microsecond delay;
 //        HAL_Delay(1);
-        HAL_GPIO_WritePin(HX710B_CLK_GPIO_Port, HX710B_CLK_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(HX710B_CLK_GPIO_Port, HX710B_CLK_Pin, GPIO_PIN_RESET);
 //        delay_us(1);  // 1 microsecond delay
 
-        // Shift result left and read data bit
-        result = result << 1;
-        if (HAL_GPIO_ReadPin(HX710B_DATA_GPIO_Port, HX710B_DATA_Pin)) {
-            result++;
-        }
-    }
+		// Shift result left and read data bit
+		result = result << 1;
+		if (HAL_GPIO_ReadPin(HX710B_DATA_GPIO_Port, HX710B_DATA_Pin)) {
+			result++;
+		}
+	}
 
-    // Convert to two's complement if needed
-    result = result ^ 0x800000;
+	// Convert to two's complement if needed
+	result = result ^ 0x800000;
 
-    // Pulse the clock line 3 times to initiate the next reading
-    for (char i = 0; i < 3; i++) {
-        HAL_GPIO_WritePin(HX710B_CLK_GPIO_Port, HX710B_CLK_Pin, GPIO_PIN_SET);
+	// Pulse the clock line 3 times to initiate the next reading
+	for (char i = 0; i < 3; i++) {
+		HAL_GPIO_WritePin(HX710B_CLK_GPIO_Port, HX710B_CLK_Pin, GPIO_PIN_SET);
 //        delay_us(1);  // Small delay
 //        HAL_Delay(1);
-        HAL_GPIO_WritePin(HX710B_CLK_GPIO_Port, HX710B_CLK_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(HX710B_CLK_GPIO_Port, HX710B_CLK_Pin, GPIO_PIN_RESET);
 //        delay_us(1);  // Small delay
-    }
+	}
 
-    return result;
+	return result;
 }
-float batterymonitor(){
+float mapVoltageToPercentage(float voltage, float minVoltage, float maxVoltage) {
+    // Ensure voltage stays within the specified range
+    if (voltage < minVoltage) voltage = minVoltage;
+    if (voltage > maxVoltage) voltage = maxVoltage;
+
+    // Map the voltage to a percentage
+    return ((voltage - minVoltage) / (maxVoltage - minVoltage)) * 100.0;
+}
+float batterymonitor() {
 // Poll for conversion completion and check if the ADC data is ready
 	HAL_ADC_Start(&hadc1);
-		if (HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY) == HAL_OK)
-		{
-			// Get the analog value
-			uint32_t adcValue = HAL_ADC_GetValue(&hadc1);
+	if (HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY) == HAL_OK) {
+		// Get the analog value
+		uint32_t adcValue = HAL_ADC_GetValue(&hadc1);
 
-			// Convert ADC value to voltage (assuming 12-bit resolution and 3.3V reference)
-			float voltage = (adcValue * 5.0f) / 1023.0f;
+		// Convert ADC value to voltage (assuming 12-bit resolution and 3.3V reference)
+		float voltage = (adcValue * 5.0f) / 1023.0f;
 
-			// Print or use the voltage value
-			return voltage/(0.4);
-		}
+		// Print or use the voltage value
+		return voltage / (0.4);
+	}
+	return 0;
 }
 
 /* USER CODE END 0 */
@@ -185,7 +195,6 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-	TMP117_Init();
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -207,56 +216,58 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_I2C1_Init();
-  MX_I2C3_Init();
   MX_USART2_UART_Init();
   MX_ADC1_Init();
+  MX_I2C3_Init();
   /* USER CODE BEGIN 2 */
-  float temp=0.0;
-  char message[100];
-  ssd1306_Init();
-  //TMP117_set_Configuration(hi2c1,0x20,0x02);
-  //TMP117_Initialization_DEFAULT(hi2c1);
- // TMP117_set_Temperature_Offset(hi2c1,0x60,0x00);
-  HAL_Delay(2);
-  ssd1306_Init();
-  ssd1306_Fill(Black);
+	float temp = 0.0;
+	char message[100];
+	//ssd1306_Init();
+	//TMP117_set_Configuration(hi2c1,0x20,0x02);
+	//TMP117_Initialization_DEFAULT(hi2c1);
+	// TMP117_set_Temperature_Offset(hi2c1,0x60,0x00);
+	HAL_Delay(2);
+	ssd1306_Init();
+	ssd1306_Fill(Black);
 //  HAL_ADC_Start(&hadc1);
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
-  {
-	TMP117_ReadTemperature(&temp) ;
-	HAL_Delay(100);
-	ssd1306_Fill(Black);
-	ssd1306_SetCursor(0, 4);
-	sprintf(message, "Temp: %.4fC\n", temp);
-	ssd1306_WriteString(message, Font_7x10, White);
-	ssd1306_SetCursor(0, 4  + 20);
-	sprintf(message, "Pressure: %.2fatm\n", readHX710B()/10000000.0);
-	ssd1306_WriteString(message, Font_7x10, White);
-	ssd1306_SetCursor(0, 4 + 38);
-	float battery = batterymonitor();
-	HAL_Delay(100);
-	HAL_ADC_Stop(&hadc1);
+	while (1) {
+		TMP117_ReadTemperature(&temp) ;
+		HAL_Delay(100);
+		ssd1306_Fill(Black);
+		ssd1306_SetCursor(0, 4);
+		sprintf(message, "Temp: %.4fC\n", temp);
+		ssd1306_WriteString(message, Font_7x10, White);
+		ssd1306_SetCursor(0, 4 + 20);
+		sprintf(message, "Pressure: %.2fatm\n", readHX710B()/10000000.0);
+		ssd1306_WriteString(message, Font_7x10, White);
+		ssd1306_SetCursor(0, 4 + 38);
+		float battery = batterymonitor();
+		HAL_Delay(100);
+		HAL_ADC_Stop(&hadc1);
 //	sprintf(message, "Battery Voltage: %.2fV\n", battery-0.889);
 //	ssd1306_WriteString(message, Font_6x8, White);
-	if((battery-0.889)<7.6){
-		sprintf(message, "Battery Low");
-		ssd1306_WriteString(message, Font_11x18, White);
-	}
-	else{
-		sprintf(message, "Battery Full");
+
+	if((battery-0.889)<8){
+		sprintf(message, "Battery:%.2f%",mapVoltageToPercentage(battery-0.889,7.4,8));
+		HAL_UART_Transmit(&huart2, message, strlen(message), HAL_MAX_DELAY);
 		ssd1306_WriteString(message, Font_7x10, White);
 	}
-	ssd1306_UpdateScreen();
+	else{
+		sprintf(message, "Battery:Full");
+		HAL_UART_Transmit(&huart2, message, strlen(message), HAL_MAX_DELAY);
+		ssd1306_WriteString(message, Font_7x10, White);
+	}
+		ssd1306_UpdateScreen();
 
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-  }
+	}
   /* USER CODE END 3 */
 }
 
@@ -264,6 +275,7 @@ int main(void)
   * @brief System Clock Configuration
   * @retval None
   */
+
 void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
@@ -383,6 +395,7 @@ static void MX_ADC1_Init(void)
   * @param None
   * @retval None
   */
+
 static void MX_I2C1_Init(void)
 {
 
@@ -442,7 +455,7 @@ static void MX_I2C3_Init(void)
 
   /* USER CODE END I2C3_Init 1 */
   hi2c3.Instance = I2C3;
-  hi2c3.Init.Timing = 0x00F12981;
+  hi2c3.Init.Timing = 0x10D19CE4;
   hi2c3.Init.OwnAddress1 = 0;
   hi2c3.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c3.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
@@ -566,11 +579,10 @@ static void MX_GPIO_Init(void)
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
-  /* User can add his own implementation to report the HAL error return state */
-  __disable_irq();
-  while (1)
-  {
-  }
+	/* User can add his own implementation to report the HAL error return state */
+	__disable_irq();
+	while (1) {
+	}
   /* USER CODE END Error_Handler_Debug */
 }
 
