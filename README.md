@@ -1,1 +1,2 @@
 # Dhoopnavarti
+Project for a Ayurvedic Medical Ear cleaning device. This device needed temperature and pressure to be monitored and displayed on an oled display. We used STM32L4 MCU for thi purpose. Along with these sensores we made a battery monitoring system with the MCU by reading analog values from the battery and displaying it on the oled. The device also readed a charging port of a lighter and the battery for which we used a battery charger with USB. A PCB was also made for it. This project was done in 3 days.
