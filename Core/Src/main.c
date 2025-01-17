@@ -252,7 +252,7 @@ int main(void)
 //	sprintf(message, "Battery Voltage: %.2fV\n", battery-0.889);
 //	ssd1306_WriteString(message, Font_6x8, White);
 
-	if((battery-0.889)<8){
+	if((battery-0.889)<11.5){
 		sprintf(message, "Battery:%.2f%",mapVoltageToPercentage(battery-0.889,7.4,8));
 		HAL_UART_Transmit(&huart2, message, strlen(message), HAL_MAX_DELAY);
 		ssd1306_WriteString(message, Font_7x10, White);

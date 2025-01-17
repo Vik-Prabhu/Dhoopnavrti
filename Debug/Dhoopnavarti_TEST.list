@@ -39,13 +39,13 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   CONTENTS, READONLY, DEBUGGING, OCTETS
  17 .debug_line   00014f96  00000000  00000000  000490e7  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 18 .debug_str    000d57b0  00000000  00000000  0005e07d  2**0
+ 18 .debug_str    000d5786  00000000  00000000  0005e07d  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 19 .comment      00000043  00000000  00000000  0013382d  2**0
+ 19 .comment      00000043  00000000  00000000  00133803  2**0
                   CONTENTS, READONLY
- 20 .debug_frame  00005b38  00000000  00000000  00133870  2**2
+ 20 .debug_frame  00005b38  00000000  00000000  00133848  2**2
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 21 .debug_line_str 00000067  00000000  00000000  001393a8  2**0
+ 21 .debug_line_str 0000003d  00000000  00000000  00139380  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
 
 Disassembly of section .text:
@@ -1842,7 +1842,7 @@ int main(void)
 //	sprintf(message, "Battery Voltage: %.2fV\n", battery-0.889);
 //	ssd1306_WriteString(message, Font_6x8, White);
 
-	if((battery-0.889)<8){
+	if((battery-0.889)<11.5){
  8001364:	6ef8      	ldr	r0, [r7, #108]	@ 0x6c
  8001366:	f7ff f8ef 	bl	8000548 <__aeabi_f2d>
  800136a:	a333      	add	r3, pc, #204	@ (adr r3, 8001438 <main+0x1a0>)
@@ -1938,7 +1938,7 @@ int main(void)
  8001444:	0800c448 	.word	0x0800c448
  8001448:	0800bca8 	.word	0x0800bca8
  800144c:	200001f0 	.word	0x200001f0
- 8001450:	40200000 	.word	0x40200000
+ 8001450:	40270000 	.word	0x40270000
  8001454:	40eccccd 	.word	0x40eccccd
  8001458:	0800bcbc 	.word	0x0800bcbc
  800145c:	200002fc 	.word	0x200002fc
